@@ -16,13 +16,17 @@ crate-type = ["cdylib", "rlib"]
 near-sdk = "5.2.1"
 k256 = { version = "0.13.3", features = ["serde"] }
 ethers-core = "2.0.14"
-dotenv = "0.15.0"
+ethers-signers = "2.0.14"
+schemars = "0.8.21"
+borsh = "1.5.1"
+serde_json = "1.0.122"
+serde = { version = "1.0.204", features = ["derive"] }
 
 [dev-dependencies]
 near-sdk = { version = "5.2.1", features = ["unit-testing"] }
 near-workspaces = { version = "0.11.0", features = ["unstable"] }
 tokio = { version = "1.39.2", features = ["full"] }
-serde_json = "1.0.122"
+dotenv = "0.15.0"
 
 [profile.release]
 codegen-units = 1
