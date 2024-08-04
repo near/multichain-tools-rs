@@ -1,0 +1,37 @@
+[package]
+name = "contract"
+description = "cargo-near-new-project-description"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.2.1"
+k256 = { version = "0.13.3", features = ["serde"] }
+ethers-core = "2.0.14"
+ethers-signers = "2.0.14"
+schemars = "0.8.21"
+borsh = "1.5.1"
+serde_json = "1.0.122"
+serde = { version = "1.0.204", features = ["derive"] }
+utils = { path = "../utils" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2.12", features = ["custom"] }
+
+[dev-dependencies]
+near-sdk = { version = "5.2.1", features = ["unit-testing"] }
+near-workspaces = { version = "0.11.0", features = ["unstable"] }
+dotenv = "0.15.0"
+tokio = { version = "1.39.2", features = ["full"] }
+anyhow = "1.0.86"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
