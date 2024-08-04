@@ -1,6 +1,11 @@
+use std::io::Read;
+
 use ethers_core::{
     k256::elliptic_curve::point::AffineCoordinates,
-    types::{transaction::eip2930::AccessList, BlockNumber, Eip1559TransactionRequest, U256},
+    types::{
+        transaction::{eip2718::TypedTransaction, eip2930::AccessList},
+        Address, BlockNumber, Eip1559TransactionRequest, U256,
+    },
     utils::{hex, keccak256},
 };
 use ethers_providers::{JsonRpcClient, Middleware, Provider};
@@ -39,6 +44,10 @@ impl<P: JsonRpcClient> EVM<P> {
 
     pub fn prepare_transaction_for_signature(transaction: &Eip1559TransactionRequest) -> [u8; 32] {
         let serialized_transaction = transaction.rlp();
+        println!(
+            "Serialized transaction: {:?}",
+            serialized_transaction.clone()
+        );
         keccak256(serialized_transaction)
     }
 
@@ -85,15 +94,19 @@ impl<P: JsonRpcClient> EVM<P> {
     ) -> Result<Eip1559TransactionRequest, Box<dyn std::error::Error>> {
         let (max_fee_per_gas, max_priority_fee_per_gas) = self.get_fee_properties().await?;
         let nonce = self.evm_provider.get_transaction_count(from, None).await?;
+        let gas_estimate = self
+            .evm_provider
+            .estimate_gas(&TypedTransaction::Eip1559(transaction.clone()), None)
+            .await?;
 
         Ok(Eip1559TransactionRequest {
             from: Some(from.parse()?),
             to: transaction.to.clone(),
-            gas: None, // Let the provider estimate gas
+            gas: Some(gas_estimate),
             value: transaction.value,
             data: transaction.data.clone(),
             nonce: Some(nonce),
-            access_list: AccessList::default(),
+            access_list: AccessList::from(vec![]),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             max_fee_per_gas: Some(max_fee_per_gas),
             chain_id: Some(self.evm_provider.get_chainid().await?.as_u64().into()),
@@ -145,7 +158,7 @@ impl<P: JsonRpcClient> EVM<P> {
         let ethers_signature = ethers_core::types::Signature {
             r: U256::from_big_endian(&signature.big_r.affine_point.x() as &[u8]),
             s: U256::from_big_endian(&signature.s.scalar.to_bytes() as &[u8]),
-            v: signature.recovery_id as u64,
+            v: signature.recovery_id.into(),
         };
 
         let _ = self
@@ -159,7 +172,7 @@ impl<P: JsonRpcClient> EVM<P> {
 mod tests {
     use super::*;
     use dotenv::dotenv;
-    use ethers_core::types::{U256, U64};
+    use ethers_core::types::U256;
     use ethers_providers::Http;
     use near_crypto::{InMemorySigner, SecretKey};
     use near_primitives::types::AccountId;
@@ -197,8 +210,7 @@ mod tests {
                     .unwrap(),
             ),
             value: Some(U256::from(10000000000000000u64)),
-            gas: Some(U256::from(21000u64)),
-            chain_id: Some(U64::from(11155111u64)),
+            data: Some(hex::decode("0x").unwrap().into()),
             ..Default::default()
         };
 
