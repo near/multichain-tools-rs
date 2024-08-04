@@ -2,13 +2,12 @@ use k256::ecdsa::{Error, VerifyingKey};
 use near_sdk::bs58;
 
 use ethers_core::{
-    k256::{
-        elliptic_curve::scalar::FromUintUnchecked,
-        sha2::{Digest, Sha256},
-        AffinePoint, Scalar, U256,
-    },
+    k256::{elliptic_curve::scalar::FromUintUnchecked, sha2::Digest, AffinePoint, Scalar, U256},
     utils::{hex, keccak256},
 };
+use sha3::Sha3_256;
+
+use crate::types::ScalarExt;
 
 /// Converts a NEAR Account JSON (NAJ) public key to a VerifyingKey.
 ///
@@ -28,13 +27,15 @@ pub fn naj_pk_to_verifying_key(root_pk: &str) -> Result<VerifyingKey, Error> {
     VerifyingKey::from_sec1_bytes(&sec1_key)
 }
 
-pub fn derive_epsilon(predecessor: String, path: String) -> Scalar {
-    let mut hasher = Sha256::new();
-    hasher.update(format!(
-        "near-mpc-recovery v0.1.0 epsilon derivation:{predecessor},{path}"
-    ));
+pub async fn derive_epsilon(predecessor: String, path: String) -> Scalar {
+    let mut hasher = Sha3_256::new();
 
-    Scalar::from_uint_unchecked(U256::from_le_slice(&hasher.finalize()))
+    let derivation_path =
+        format!("near-mpc-recovery v0.1.0 epsilon derivation:{predecessor},{path}");
+    hasher.update(derivation_path);
+    let hash: [u8; 32] = hasher.finalize().into();
+
+    Scalar::from_bytes(&hash)
 }
 
 /// Derives a child public key from a parent public key and a path.
@@ -52,12 +53,12 @@ pub fn derive_epsilon(predecessor: String, path: String) -> Scalar {
 /// );
 /// assert!(child_pk.is_ok());
 /// ```
-pub fn derive_child_public_key(
+pub async fn derive_child_public_key(
     public_key: &VerifyingKey,
     predecessor: String,
     path: String,
 ) -> Result<VerifyingKey, Error> {
-    let epsilon = derive_epsilon(predecessor, path);
+    let epsilon = derive_epsilon(predecessor, path).await;
 
     let new_public_key = (AffinePoint::GENERATOR * epsilon + public_key.as_affine()).to_affine();
     VerifyingKey::from_affine(new_public_key)
@@ -66,5 +67,5 @@ pub fn derive_child_public_key(
 pub fn derive_eth_address(public_key: &VerifyingKey) -> String {
     let encoded_point = public_key.to_encoded_point(false);
     let address = &keccak256(&encoded_point.as_bytes()[1..])[12..];
-    hex::encode(address)
+    format!("0x{}", hex::encode(address))
 }

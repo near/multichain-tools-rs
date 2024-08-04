@@ -1,9 +1,11 @@
+use std::io::Read;
+
 use near_crypto::InMemorySigner;
 use near_jsonrpc_client::methods;
 use near_primitives::types::FunctionArgs;
 use near_primitives::views::{FinalExecutionOutcomeViewEnum, FinalExecutionStatus};
 use near_sdk::AccountId;
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::time;
 use utils::types::{SignRequest, SignatureResponse};
 
@@ -69,7 +71,14 @@ pub async fn call_public_key(
     )
     .await?;
 
-    String::from_utf8(result).map_err(|e| e.into())
+    let json_str = String::from_utf8(result.to_vec())?;
+    let json_value: Value = serde_json::from_str(&json_str)?;
+
+    if let Value::String(public_key) = json_value {
+        Ok(public_key)
+    } else {
+        Err("Unexpected format for public key".into())
+    }
 }
 
 #[cfg(test)]

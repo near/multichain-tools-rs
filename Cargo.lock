@@ -6575,6 +6575,7 @@ dependencies = [
  "near-workspaces",
  "schemars",
  "serde",
+ "sha3",
  "tokio",
 ]
 

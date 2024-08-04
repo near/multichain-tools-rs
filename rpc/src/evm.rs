@@ -1,11 +1,11 @@
 use ethers_core::{
     k256::elliptic_curve::point::AffineCoordinates,
     types::{transaction::eip2930::AccessList, BlockNumber, Eip1559TransactionRequest, U256},
-    utils::keccak256,
+    utils::{hex, keccak256},
 };
 use ethers_providers::{JsonRpcClient, Middleware, Provider};
 use near_jsonrpc_client::JsonRpcClient as NearJsonRpcClient;
-use near_sdk::AccountId;
+use near_sdk::{serde::Serialize, AccountId};
 use utils::{
     kdf::{derive_child_public_key, derive_eth_address, naj_pk_to_verifying_key},
     types::{NearAuthentication, SignRequest},
@@ -38,7 +38,7 @@ impl<P: JsonRpcClient> EVM<P> {
     }
 
     pub fn prepare_transaction_for_signature(transaction: &Eip1559TransactionRequest) -> [u8; 32] {
-        let serialized_transaction = transaction.rlp().to_vec();
+        let serialized_transaction = transaction.rlp();
         keccak256(serialized_transaction)
     }
 
@@ -48,21 +48,29 @@ impl<P: JsonRpcClient> EVM<P> {
         signature: ethers_core::types::Signature,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let signed_tx = transaction.rlp_signed(&signature);
-        self.evm_provider
+
+        match self
+            .evm_provider
             .send_raw_transaction(signed_tx.into())
-            .await?;
+            .await
+        {
+            Ok(hash) => {
+                println!("Transaction hash: {:?}", hex::encode(hash.0));
+            }
+            Err(e) => {
+                eprintln!("Error sending transaction: {:?}", e);
+            }
+        }
         Ok(())
     }
 
     pub async fn get_fee_properties(&self) -> Result<(U256, U256), Box<dyn std::error::Error>> {
-        // Get the latest block
         let latest_block = self
             .evm_provider
             .get_block(BlockNumber::Latest)
             .await?
             .unwrap();
 
-        // Calculate max_fee_per_gas and max_priority_fee_per_gas
         let base_fee_per_gas = latest_block.base_fee_per_gas.unwrap_or_default();
         let max_priority_fee_per_gas = U256::from(1_000_000_000);
         let max_fee_per_gas = base_fee_per_gas + max_priority_fee_per_gas;
@@ -101,13 +109,12 @@ impl<P: JsonRpcClient> EVM<P> {
         let public_key = call_public_key(&self.near_client, self.contract.clone())
             .await
             .unwrap();
-        println!("public_key: {:?}", public_key);
         let public_key = naj_pk_to_verifying_key(&public_key).unwrap();
-        println!("naj_pk_to_verifying_key: {:?}", public_key);
         let child_public_key =
-            derive_child_public_key(&public_key, signer_id.to_string(), path.to_string());
-        println!("derive_child_public_key: {:?}", child_public_key);
-        derive_eth_address(&child_public_key.unwrap())
+            derive_child_public_key(&public_key, signer_id.to_string(), path.to_string())
+                .await
+                .unwrap();
+        derive_eth_address(&child_public_key)
     }
 
     pub async fn handle_transaction(
@@ -136,9 +143,9 @@ impl<P: JsonRpcClient> EVM<P> {
         .await?;
 
         let ethers_signature = ethers_core::types::Signature {
-            r: U256::from_big_endian(signature.big_r.affine_point.x().as_slice()),
-            s: U256::from_big_endian(signature.s.scalar.to_bytes().as_slice()),
-            v: signature.recovery_id.into(),
+            r: U256::from_big_endian(&signature.big_r.affine_point.x() as &[u8]),
+            s: U256::from_big_endian(&signature.s.scalar.to_bytes() as &[u8]),
+            v: signature.recovery_id as u64,
         };
 
         let _ = self
@@ -152,11 +159,10 @@ impl<P: JsonRpcClient> EVM<P> {
 mod tests {
     use super::*;
     use dotenv::dotenv;
-    use ethers_core::types::{Address, NameOrAddress, U256, U64};
+    use ethers_core::types::{U256, U64};
     use ethers_providers::Http;
     use near_crypto::{InMemorySigner, SecretKey};
     use near_primitives::types::AccountId;
-    use std::str::FromStr;
     use utils::types::NearNetwork;
 
     #[tokio::test]
@@ -185,15 +191,12 @@ mod tests {
 
         // Create a sample Eip1559TransactionRequest for Sepolia testnet
         let transaction_request = Eip1559TransactionRequest {
-            to: Some(NameOrAddress::Address(
-                Address::from_str("0x742d35Cc6634C0532925a3b844Bc454e4438f44e").unwrap(),
-            )),
-            value: Some(U256::from(1000000000000000u64)),
-            data: None,
-            nonce: None,
-            access_list: AccessList::default(),
-            max_priority_fee_per_gas: Some(U256::from(1500000000u64)),
-            max_fee_per_gas: Some(U256::from(3000000000u64)),
+            to: Some(
+                "0x4174678c78fEaFd778c1ff319D5D326701449b25"
+                    .parse()
+                    .unwrap(),
+            ),
+            value: Some(U256::from(10000000000000000u64)),
             gas: Some(U256::from(21000u64)),
             chain_id: Some(U64::from(11155111u64)),
             ..Default::default()
