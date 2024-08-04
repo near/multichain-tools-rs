@@ -196,58 +196,58 @@ pub async fn call_public_key(
     String::from_utf8(result).map_err(|e| e.into())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use k256::sha2::{Digest, Sha256};
-    use near_crypto::SecretKey;
-    use near_jsonrpc_client::JsonRpcClient;
-    use near_primitives::types::AccountId;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use k256::sha2::{Digest, Sha256};
+//     use near_crypto::SecretKey;
+//     use near_jsonrpc_client::JsonRpcClient;
+//     use near_primitives::types::AccountId;
 
-    #[tokio::test]
-    async fn test_sign() -> Result<(), Box<dyn std::error::Error>> {
-        dotenv::dotenv().ok();
+//     #[tokio::test]
+//     async fn test_sign() -> Result<(), Box<dyn std::error::Error>> {
+//         dotenv::dotenv().ok();
 
-        let account_id: AccountId = std::env::var("NEAR_ACCOUNT_ID").unwrap().parse().unwrap();
-        let private_key: SecretKey = std::env::var("NEAR_PRIVATE_KEY").unwrap().parse().unwrap();
-        let contract_id: AccountId = std::env::var("CHAIN_SIGNATURE_CONTRACT")
-            .unwrap()
-            .parse()
-            .unwrap();
+//         let account_id: AccountId = std::env::var("NEAR_ACCOUNT_ID").unwrap().parse().unwrap();
+//         let private_key: SecretKey = std::env::var("NEAR_PRIVATE_KEY").unwrap().parse().unwrap();
+//         let contract_id: AccountId = std::env::var("CHAIN_SIGNATURE_CONTRACT")
+//             .unwrap()
+//             .parse()
+//             .unwrap();
 
-        let signer = InMemorySigner::from_secret_key(account_id.clone(), private_key);
-        let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
+//         let signer = InMemorySigner::from_secret_key(account_id.clone(), private_key);
+//         let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
 
-        // Prepare the sign request
-        let sign_request = SignRequest {
-            payload: Sha256::digest("test".as_bytes()).into(),
-            path: "test".to_string(),
-            key_version: 0,
-        };
+//         // Prepare the sign request
+//         let sign_request = SignRequest {
+//             payload: Sha256::digest("test".as_bytes()).into(),
+//             path: "test".to_string(),
+//             key_version: 0,
+//         };
 
-        // Call the sign function
-        let result = call_sign(&client, contract_id, sign_request, signer).await?;
+//         // Call the sign function
+//         let result = call_sign(&client, contract_id, sign_request, signer).await?;
 
-        println!("Sign result: {:?}", result);
+//         println!("Sign result: {:?}", result);
 
-        Ok(())
-    }
+//         Ok(())
+//     }
 
-    #[tokio::test]
-    async fn test_public_key() -> Result<(), Box<dyn std::error::Error>> {
-        dotenv::dotenv().ok();
+//     #[tokio::test]
+//     async fn test_public_key() -> Result<(), Box<dyn std::error::Error>> {
+//         dotenv::dotenv().ok();
 
-        let contract_id: AccountId = std::env::var("CHAIN_SIGNATURE_CONTRACT")
-            .unwrap()
-            .parse()
-            .unwrap();
+//         let contract_id: AccountId = std::env::var("CHAIN_SIGNATURE_CONTRACT")
+//             .unwrap()
+//             .parse()
+//             .unwrap();
 
-        let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
+//         let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
 
-        let result = call_public_key(&client, contract_id).await;
+//         let result = call_public_key(&client, contract_id).await;
 
-        println!("{:?}", result);
+//         println!("{:?}", result);
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }

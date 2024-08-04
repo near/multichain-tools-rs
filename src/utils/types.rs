@@ -1,4 +1,3 @@
-
 use borsh::{BorshDeserialize, BorshSerialize};
 use ethers_core::k256::{
     ecdsa::RecoveryId,
@@ -9,7 +8,7 @@ use ethers_core::k256::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Debug)]
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, JsonSchema, Debug)]
 pub struct SignRequest {
     pub payload: [u8; 32],
     pub path: String,

@@ -3074,15 +3074,13 @@ dependencies = [
 name = "multichain-tools-rs"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "borsh",
  "dotenv",
  "ethers-core",
  "ethers-signers",
+ "getrandom",
  "k256",
- "near-crypto",
- "near-jsonrpc-client",
- "near-jsonrpc-primitives",
- "near-primitives",
  "near-sdk",
  "near-workspaces",
  "schemars",
