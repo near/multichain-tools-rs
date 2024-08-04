@@ -1,0 +1,10 @@
+[package]
+name = "rpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+near-jsonrpc-client = "0.10.1"
+near-primitives = "0.23.0"
+near-jsonrpc-primitives = "0.23.0"
+near-crypto = "0.23.0"
