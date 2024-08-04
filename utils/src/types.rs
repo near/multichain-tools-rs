@@ -1,5 +1,7 @@
 use ethers_core::k256::{elliptic_curve::scalar::FromUintUnchecked, AffinePoint, Scalar, U256};
 
+use near_crypto::InMemorySigner;
+use near_sdk::AccountId;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -37,4 +39,23 @@ pub struct SignatureResponse {
     pub big_r: SerializableAffinePoint,
     pub s: SerializableScalar,
     pub recovery_id: u8,
+}
+
+#[derive(Clone)]
+pub enum NearNetwork {
+    Mainnet,
+    Testnet,
+}
+
+#[derive(Clone)]
+pub struct NearAuthentication {
+    pub network: NearNetwork,
+    pub account_id: AccountId,
+    pub key_pair: InMemorySigner,
+}
+
+pub struct EVMTransaction {
+    pub to: String,
+    pub value: U256,
+    pub from: Option<String>,
 }

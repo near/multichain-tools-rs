@@ -1,5 +1,5 @@
 use near_crypto::InMemorySigner;
-use near_jsonrpc_client::methods;
+use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_jsonrpc_primitives::types::transactions::{RpcTransactionError, TransactionInfo};
 use near_primitives::hash::CryptoHash;
@@ -9,6 +9,7 @@ use near_primitives::views::{FinalExecutionOutcomeViewEnum, QueryRequest, TxExec
 use near_sdk::AccountId;
 
 use tokio::time;
+use utils::types::NearNetwork;
 
 pub async fn get_current_nonce(
     client: &near_jsonrpc_client::JsonRpcClient,
@@ -133,4 +134,13 @@ pub async fn get_latest_block_hash(
 
     let response = client.call(request).await?;
     Ok(response.header.hash)
+}
+
+pub fn get_near_client(network: NearNetwork) -> JsonRpcClient {
+    let rpc_url = match network {
+        NearNetwork::Mainnet => "https://rpc.mainnet.near.org",
+        NearNetwork::Testnet => "https://rpc.testnet.near.org",
+    };
+
+    JsonRpcClient::connect(rpc_url)
 }

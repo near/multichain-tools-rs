@@ -13,6 +13,7 @@ ethers-core = "2.0.14"
 schemars = "0.8.21"
 serde = { version = "1.0.204", features = ["derive"] }
 bs58 = "0.5.0"
+near-crypto = "0.23.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2.12", features = ["custom"] }
