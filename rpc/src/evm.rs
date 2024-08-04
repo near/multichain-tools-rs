@@ -1,16 +1,14 @@
-use std::io::Read;
-
 use ethers_core::{
     k256::elliptic_curve::point::AffineCoordinates,
     types::{
         transaction::{eip2718::TypedTransaction, eip2930::AccessList},
-        Address, BlockNumber, Eip1559TransactionRequest, U256,
+        BlockNumber, Eip1559TransactionRequest, U256,
     },
     utils::{hex, keccak256},
 };
 use ethers_providers::{JsonRpcClient, Middleware, Provider};
 use near_jsonrpc_client::JsonRpcClient as NearJsonRpcClient;
-use near_sdk::{serde::Serialize, AccountId};
+use near_sdk::AccountId;
 use utils::{
     kdf::{derive_child_public_key, derive_eth_address, naj_pk_to_verifying_key},
     types::{NearAuthentication, SignRequest},
@@ -42,18 +40,14 @@ impl<P: JsonRpcClient> EVM<P> {
         }
     }
 
-    pub fn prepare_transaction_for_signature(transaction: &Eip1559TransactionRequest) -> [u8; 32] {
+    pub fn prepare_transaction_for_signature(transaction: &TypedTransaction) -> [u8; 32] {
         let serialized_transaction = transaction.rlp();
-        println!(
-            "Serialized transaction: {:?}",
-            serialized_transaction.clone()
-        );
         keccak256(serialized_transaction)
     }
 
     pub async fn send_signed_transaction(
         &self,
-        transaction: Eip1559TransactionRequest,
+        transaction: TypedTransaction,
         signature: ethers_core::types::Signature,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let signed_tx = transaction.rlp_signed(&signature);
@@ -89,28 +83,28 @@ impl<P: JsonRpcClient> EVM<P> {
 
     pub async fn attach_gas_and_nonce(
         &self,
-        transaction: &Eip1559TransactionRequest,
+        transaction: &TypedTransaction,
         from: &str,
-    ) -> Result<Eip1559TransactionRequest, Box<dyn std::error::Error>> {
+    ) -> Result<TypedTransaction, Box<dyn std::error::Error>> {
         let (max_fee_per_gas, max_priority_fee_per_gas) = self.get_fee_properties().await?;
         let nonce = self.evm_provider.get_transaction_count(from, None).await?;
         let gas_estimate = self
             .evm_provider
-            .estimate_gas(&TypedTransaction::Eip1559(transaction.clone()), None)
+            .estimate_gas(&transaction.clone(), None)
             .await?;
 
-        Ok(Eip1559TransactionRequest {
+        Ok(TypedTransaction::Eip1559(Eip1559TransactionRequest {
             from: Some(from.parse()?),
-            to: transaction.to.clone(),
+            to: transaction.to().cloned(),
             gas: Some(gas_estimate),
-            value: transaction.value,
-            data: transaction.data.clone(),
+            value: transaction.value().cloned(),
+            data: transaction.data().cloned(),
             nonce: Some(nonce),
-            access_list: AccessList::from(vec![]),
+            access_list: AccessList::default(),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             max_fee_per_gas: Some(max_fee_per_gas),
             chain_id: Some(self.evm_provider.get_chainid().await?.as_u64().into()),
-        })
+        }))
     }
 
     pub async fn get_balance(&self, address: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -132,7 +126,7 @@ impl<P: JsonRpcClient> EVM<P> {
 
     pub async fn handle_transaction(
         &self,
-        data: Eip1559TransactionRequest,
+        data: TypedTransaction,
         path: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let from = self
@@ -202,17 +196,14 @@ mod tests {
             contract_id,
         );
 
-        // Create a sample Eip1559TransactionRequest for Sepolia testnet
-        let transaction_request = Eip1559TransactionRequest {
-            to: Some(
-                "0x4174678c78fEaFd778c1ff319D5D326701449b25"
-                    .parse()
-                    .unwrap(),
-            ),
-            value: Some(U256::from(10000000000000000u64)),
-            data: Some(hex::decode("0x").unwrap().into()),
-            ..Default::default()
-        };
+        // Create a sample TypedTransaction for Sepolia testnet
+        let transaction_request = TypedTransaction::Eip1559(
+            Eip1559TransactionRequest::new()
+                .to("0x4174678c78fEaFd778c1ff319D5D326701449b25"
+                    .parse::<ethers_core::types::NameOrAddress>()
+                    .unwrap())
+                .value(U256::from(3500000000000000u64)),
+        );
 
         let result = evm
             .handle_transaction(transaction_request, "eth".to_string())
