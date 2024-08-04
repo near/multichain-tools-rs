@@ -3,15 +3,16 @@ name = "utils"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 near-sdk = "5.2.1"
 k256 = { version = "0.13.3", features = ["serde"] }
 ethers-core = "2.0.14"
-ethers-signers = "2.0.14"
 schemars = "0.8.21"
-borsh = "1.5.1"
-serde_json = "1.0.122"
 serde = { version = "1.0.204", features = ["derive"] }
+bs58 = "0.5.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2.12", features = ["custom"] }

@@ -15,7 +15,7 @@ use ethers_core::{
 /// # Example
 ///
 /// ```
-/// use multichain_tools_rs::utils::kdf::naj_pk_to_verifying_key;
+/// use utils::kdf::naj_pk_to_verifying_key;
 ///
 /// let verifying_key = naj_pk_to_verifying_key("secp256k1:54hU5wcCmVUPFWLDALXMh1fFToZsVXrx9BbTbHzSfQq1Kd1rJZi52iPa4QQxo6s5TgjWqgpY8HamYuUDzG6fAaUq");
 /// assert!(verifying_key.is_ok());
@@ -42,7 +42,7 @@ pub fn derive_epsilon(predecessor: String, path: String) -> Scalar {
 /// # Example
 ///
 /// ```
-/// use multichain_tools_rs::utils::kdf::{naj_pk_to_verifying_key, derive_child_public_key};
+/// use utils::kdf::{naj_pk_to_verifying_key, derive_child_public_key};
 ///
 /// let verifying_key = naj_pk_to_verifying_key("secp256k1:54hU5wcCmVUPFWLDALXMh1fFToZsVXrx9BbTbHzSfQq1Kd1rJZi52iPa4QQxo6s5TgjWqgpY8HamYuUDzG6fAaUq").unwrap();
 /// let child_pk = derive_child_public_key(

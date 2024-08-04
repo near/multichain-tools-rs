@@ -1,8 +1,2 @@
-[package]
-name = "multichain-tools-rs"
-description = "cargo-near-new-project-description"
-version = "0.1.0"
-edition = "2021"
-
 [workspace]
 members = ["rpc", "contract", "utils"]
