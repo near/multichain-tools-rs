@@ -166,13 +166,10 @@ mod tests {
             .unwrap()
             .parse()
             .unwrap();
+        let eth_rpc_url = std::env::var("ETH_SEPOLIA_RPC_URL").unwrap();
 
-        // Create a mock EVM instance with Sepolia RPC URL
         let evm = EVM::new(
-            Provider::<Http>::try_from(
-                "https://sepolia.infura.io/v3/6df51ccaa17f4e078325b5050da5a2dd",
-            )
-            .unwrap(),
+            Provider::<Http>::try_from(eth_rpc_url).unwrap(),
             NearAuthentication {
                 network: NearNetwork::Testnet,
                 account_id: account_id.clone(),
@@ -181,7 +178,6 @@ mod tests {
             contract_id,
         );
 
-        // Create a sample TypedTransaction for Sepolia testnet
         let transaction_request = TypedTransaction::Eip1559(
             Eip1559TransactionRequest::new()
                 .to("0x4174678c78fEaFd778c1ff319D5D326701449b25"
