@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use near_crypto::InMemorySigner;
 use near_jsonrpc_client::methods;
 use near_primitives::types::FunctionArgs;

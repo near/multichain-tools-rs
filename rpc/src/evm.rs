@@ -2,15 +2,15 @@ use ethers_core::{
     k256::elliptic_curve::point::AffineCoordinates,
     types::{
         transaction::{eip2718::TypedTransaction, eip2930::AccessList},
-        BlockNumber, Eip1559TransactionRequest, U256,
+        BigEndianHash, BlockNumber, Eip1559TransactionRequest, H160, H256, U256,
     },
-    utils::{hex, keccak256},
+    utils::hex,
 };
 use ethers_providers::{JsonRpcClient, Middleware, Provider};
 use near_jsonrpc_client::JsonRpcClient as NearJsonRpcClient;
 use near_sdk::AccountId;
 use utils::{
-    kdf::{derive_child_public_key, derive_eth_address, naj_pk_to_verifying_key},
+    kdf::derive_eth_address,
     types::{NearAuthentication, SignRequest},
 };
 
@@ -40,31 +40,23 @@ impl<P: JsonRpcClient> EVM<P> {
         }
     }
 
-    pub fn prepare_transaction_for_signature(transaction: &TypedTransaction) -> [u8; 32] {
-        let serialized_transaction = transaction.rlp();
-        keccak256(serialized_transaction)
-    }
-
     pub async fn send_signed_transaction(
         &self,
         transaction: TypedTransaction,
         signature: ethers_core::types::Signature,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<H256, Box<dyn std::error::Error>> {
         let signed_tx = transaction.rlp_signed(&signature);
 
-        match self
-            .evm_provider
-            .send_raw_transaction(signed_tx.into())
-            .await
-        {
-            Ok(hash) => {
-                println!("Transaction hash: {:?}", hex::encode(hash.0));
+        match self.evm_provider.send_raw_transaction(signed_tx).await {
+            Ok(tx_hash) => {
+                println!("Transaction hash: {:?}", hex::encode(tx_hash.tx_hash()));
+                Ok(tx_hash.tx_hash())
             }
             Err(e) => {
                 eprintln!("Error sending transaction: {:?}", e);
+                Err(Box::new(e))
             }
         }
-        Ok(())
     }
 
     pub async fn get_fee_properties(&self) -> Result<(U256, U256), Box<dyn std::error::Error>> {
@@ -72,7 +64,7 @@ impl<P: JsonRpcClient> EVM<P> {
             .evm_provider
             .get_block(BlockNumber::Latest)
             .await?
-            .unwrap();
+            .ok_or("Latest block not found")?;
 
         let base_fee_per_gas = latest_block.base_fee_per_gas.unwrap_or_default();
         let max_priority_fee_per_gas = U256::from(1_000_000_000);
@@ -93,18 +85,19 @@ impl<P: JsonRpcClient> EVM<P> {
             .estimate_gas(&transaction.clone(), None)
             .await?;
 
-        Ok(TypedTransaction::Eip1559(Eip1559TransactionRequest {
-            from: Some(from.parse()?),
-            to: transaction.to().cloned(),
-            gas: Some(gas_estimate),
-            value: transaction.value().cloned(),
-            data: transaction.data().cloned(),
-            nonce: Some(nonce),
-            access_list: AccessList::default(),
-            max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
-            max_fee_per_gas: Some(max_fee_per_gas),
-            chain_id: Some(self.evm_provider.get_chainid().await?.as_u64().into()),
-        }))
+        Ok(TypedTransaction::Eip1559(
+            Eip1559TransactionRequest::new()
+                .from(from.parse::<H160>().unwrap())
+                .to(transaction.to().cloned().unwrap())
+                .gas(gas_estimate)
+                .value(transaction.value().cloned().unwrap_or_default())
+                .data(transaction.data().cloned().unwrap_or_default())
+                .nonce(nonce)
+                .access_list(AccessList::default())
+                .max_priority_fee_per_gas(max_priority_fee_per_gas)
+                .max_fee_per_gas(max_fee_per_gas)
+                .chain_id(self.evm_provider.get_chainid().await?.as_u64()),
+        ))
     }
 
     pub async fn get_balance(&self, address: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -112,31 +105,29 @@ impl<P: JsonRpcClient> EVM<P> {
         Ok(ethers_core::utils::format_ether(balance))
     }
 
-    pub async fn derive_address(&self, signer_id: &str, path: &str) -> String {
-        let public_key = call_public_key(&self.near_client, self.contract.clone())
-            .await
-            .unwrap();
-        let public_key = naj_pk_to_verifying_key(&public_key).unwrap();
-        let child_public_key =
-            derive_child_public_key(&public_key, signer_id.to_string(), path.to_string())
-                .await
-                .unwrap();
-        derive_eth_address(&child_public_key)
+    pub async fn derive_address(
+        &self,
+        signer_id: &str,
+        path: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let naj_public_key = call_public_key(&self.near_client, self.contract.clone()).await?;
+        let eth_address =
+            derive_eth_address(&naj_public_key, signer_id.to_string(), path.to_string()).await?;
+        Ok(eth_address)
     }
 
     pub async fn handle_transaction(
         &self,
         data: TypedTransaction,
         path: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<H256, Box<dyn std::error::Error>> {
         let from = self
             .derive_address(&self.near_authentication.account_id.to_string(), &path)
-            .await;
+            .await?;
         let transaction = self.attach_gas_and_nonce(&data, &from).await?;
-        let transaction_hash = Self::prepare_transaction_for_signature(&transaction);
 
         let sign_request = SignRequest {
-            payload: transaction_hash,
+            payload: transaction.sighash().into(),
             path,
             key_version: 0,
         };
@@ -155,10 +146,8 @@ impl<P: JsonRpcClient> EVM<P> {
             v: signature.recovery_id.into(),
         };
 
-        let _ = self
-            .send_signed_transaction(transaction, ethers_signature)
-            .await;
-        Ok(())
+        self.send_signed_transaction(transaction, ethers_signature)
+            .await
     }
 }
 

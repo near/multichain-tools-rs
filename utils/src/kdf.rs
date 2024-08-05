@@ -2,7 +2,7 @@ use k256::ecdsa::{Error, VerifyingKey};
 use near_sdk::bs58;
 
 use ethers_core::{
-    k256::{elliptic_curve::scalar::FromUintUnchecked, sha2::Digest, AffinePoint, Scalar, U256},
+    k256::{sha2::Digest, AffinePoint, Scalar},
     utils::{hex, keccak256},
 };
 use sha3::Sha3_256;
@@ -64,8 +64,15 @@ pub async fn derive_child_public_key(
     VerifyingKey::from_affine(new_public_key)
 }
 
-pub fn derive_eth_address(public_key: &VerifyingKey) -> String {
-    let encoded_point = public_key.to_encoded_point(false);
+pub async fn derive_eth_address(
+    naj_public_key: &str,
+    predecessor: String,
+    path: String,
+) -> Result<String, Error> {
+    let root_public_key = naj_pk_to_verifying_key(naj_public_key)?;
+    let child_public_key = derive_child_public_key(&root_public_key, predecessor, path).await?;
+
+    let encoded_point = child_public_key.to_encoded_point(false);
     let address = &keccak256(&encoded_point.as_bytes()[1..])[12..];
-    format!("0x{}", hex::encode(address))
+    Ok(format!("0x{}", hex::encode(address)))
 }
