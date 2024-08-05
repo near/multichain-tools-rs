@@ -2,9 +2,8 @@ use ethers_core::{
     k256::elliptic_curve::point::AffineCoordinates,
     types::{
         transaction::{eip2718::TypedTransaction, eip2930::AccessList},
-        BigEndianHash, BlockNumber, Eip1559TransactionRequest, H160, H256, U256,
+        BlockNumber, Eip1559TransactionRequest, H160, H256, U256,
     },
-    utils::hex,
 };
 use ethers_providers::{JsonRpcClient, Middleware, Provider};
 use near_jsonrpc_client::JsonRpcClient as NearJsonRpcClient;
@@ -48,10 +47,7 @@ impl<P: JsonRpcClient> EVM<P> {
         let signed_tx = transaction.rlp_signed(&signature);
 
         match self.evm_provider.send_raw_transaction(signed_tx).await {
-            Ok(tx_hash) => {
-                println!("Transaction hash: {:?}", hex::encode(tx_hash.tx_hash()));
-                Ok(tx_hash.tx_hash())
-            }
+            Ok(tx_hash) => Ok(tx_hash.tx_hash()),
             Err(e) => {
                 eprintln!("Error sending transaction: {:?}", e);
                 Err(Box::new(e))
@@ -199,5 +195,7 @@ mod tests {
             .await;
 
         assert!(result.is_ok());
+
+        println!("Tx hash: {:?}", result.unwrap());
     }
 }
